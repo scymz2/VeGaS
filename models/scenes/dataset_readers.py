@@ -23,35 +23,61 @@ def create_transform_matrix(distance):
     return transform_matrix
 
 def readImage(path, white_background, eval, distance, num_pts, extension=".png"):
+    """
+    Creates a 3D scene representation from a single image.
+    
+    Parameters:
+    - path: Directory containing the image files
+    - white_background: Whether to use white background (True) or transparent (False)
+    - eval: Evaluation mode flag
+    - distance: Distance of the camera from the origin (determines scene scale)
+    - num_pts: Number of random 3D points to generate for initialization
+    - extension: Image file extension to look for
+    
+    Returns:
+    - SceneInfo object containing camera parameters, point cloud, and normalization data
+    """
     print("Creating Training Transform")
+    # Create camera configuration for training (single view at -distance)
     train_cam_infos = CreateCamerasTransforms(
         path, white_background, [-distance], extension
     )
     print("Creating Test Transform")
+    # Use the same camera configuration for testing
     test_cam_infos = CreateCamerasTransforms(
         path, white_background, [-distance], extension
     )
 
+    # Get scene normalization parameters for NeRF++ compatibility
     nerf_normalization = getNerfppNorm(train_cam_infos)
     ply_path = os.path.join(path, "points3d.ply")
-    # Since this data set has no colmap data, we start with random points
+    
+    # Calculate the visible bounds of the scene based on camera parameters
     camera = train_cam_infos[0]
+    # Calculate vertical bound based on FoV and distance
     top = distance * math.tan(camera.FovY * 0.5)
+    # Calculate horizontal bound based on aspect ratio
     aspect_ratio = camera.width / camera.height
     right = top * aspect_ratio
     print(f"Generating random point cloud ({num_pts})...")
 
-    # We create random points inside the bounds of the synthetic Blender scenes
+    # Generate random points within the calculated frustum bounds
+    # Points are created in a planar distribution at z=0 (creates a flat point cloud)
     xyz = np.random.uniform(low=[-right, 0, -top], high=[right, 0, top], size=(num_pts, 3))
+    # Generate random colors for each point
     shs = np.random.random((num_pts, 3)) / 255.0
+    # Create point cloud object with points, colors, and zero normals
     pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
 
+    # Save point cloud to PLY file
     storePly(ply_path, xyz, SH2RGB(shs) * 255)
+    # Try to read it back (ensures format compatibility)
     try:
         pcd = fetchPly(ply_path)
     except:
         pcd = None
 
+    # Package all scene information into a SceneInfo object
     scene_info = SceneInfo(
         point_cloud=pcd,
         train_cameras=train_cam_infos,

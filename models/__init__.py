@@ -28,3 +28,6 @@ gaussianModelRender = {
     "gs": GaussianModel,
     "pgs": PointsGaussianModel
 }
+
+# GaussianModel表示完整的3D体积高斯，能在各个方向自由缩放。
+# PointsGaussianModel表示扁平化（限制了Y轴方向的缩放）的高斯体，适合基于点/面的渲染，通过限制某一维度的缩放使高斯体变得的扁平。
