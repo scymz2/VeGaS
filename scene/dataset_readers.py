@@ -48,7 +48,31 @@ class SceneInfo(NamedTuple):
     maxtime: int
 
 def getNerfppNorm(cam_info):
+    """
+    计算NeRF++归一化参数，用于场景规范化。
+    
+    该函数计算所有相机位置的中心点和包围球半径，以便在训练和渲染过程中对场景进行标准化处理。
+    规范化可以提高训练稳定性和渲染质量，尤其是对于大型场景。
+    
+    参数:
+        cam_info: 相机信息列表，每个元素包含相机的R(旋转矩阵)和T(平移向量)
+        
+    返回:
+        字典包含两个键值对:
+        - "translate": 场景中心的负向量，用于将场景中心移至原点
+        - "radius": 包围所有相机位置的球体半径，略大于实际对角线长度(乘以1.1)
+    """
     def get_center_and_diag(cam_centers):
+        """
+        计算所有相机中心的平均位置和最大距离
+        
+        参数:
+            cam_centers: 相机中心位置列表
+            
+        返回:
+            center: 所有相机中心的平均位置
+            diagonal: 从平均中心到最远相机的距离
+        """
         cam_centers = np.hstack(cam_centers)
         avg_cam_center = np.mean(cam_centers, axis=1, keepdims=True)
         center = avg_cam_center
@@ -58,14 +82,18 @@ def getNerfppNorm(cam_info):
 
     cam_centers = []
 
+    # 计算每个相机的世界坐标位置
     for cam in cam_info:
-        W2C = getWorld2View2(cam.R, cam.T)
-        C2W = np.linalg.inv(W2C)
-        cam_centers.append(C2W[:3, 3:4])
+        W2C = getWorld2View2(cam.R, cam.T)  # 世界坐标到相机坐标的变换矩阵
+        C2W = np.linalg.inv(W2C)            # 相机坐标到世界坐标的变换矩阵
+        cam_centers.append(C2W[:3, 3:4])    # 提取相机在世界坐标系中的位置
 
+    # 获取所有相机的中心点和最大距离
     center, diagonal = get_center_and_diag(cam_centers)
+    # 将半径设为对角线的1.1倍，确保所有相机都在球内并留有余量
     radius = diagonal * 1.1
 
+    # 计算将场景中心移至原点的平移向量
     translate = -center
 
     return {"translate": translate, "radius": radius}

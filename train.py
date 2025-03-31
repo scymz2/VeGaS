@@ -392,6 +392,7 @@ if __name__ == "__main__":
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
 
     # 开始训练
+    # extract()方法将命令行参数解析为对象属性，可以得到一个更干净简洁的参数对象
     training(
         args.gs_type,
         lp.extract(args), op.extract(args), pp.extract(args),
