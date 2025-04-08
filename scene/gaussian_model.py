@@ -22,50 +22,109 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation, _axis_angle_rotation, matrix_to_quaternion
 
 class GaussianModel:
+    """
+    高斯模型类 - 用于表示三维场景中的高斯点云
+    该模型用于存储和处理3D高斯点的位置、特征、尺度、旋转等属性
+    """
 
     def setup_functions(self):
+        """
+        设置模型使用的激活函数和变换函数
+        包括缩放激活、协方差计算、不透明度激活等
+        """
         def build_covariance_from_scaling_rotation(scaling, scaling_modifier, rotation):
+            """
+            从缩放和旋转参数构建协方差矩阵
+            
+            参数:
+                scaling: 缩放参数
+                scaling_modifier: 缩放修正系数
+                rotation: 旋转参数
+                
+            返回:
+                协方差矩阵的对称部分
+            """
             L = build_scaling_rotation(scaling_modifier * scaling, rotation)
-            actual_covariance = L @ L.transpose(1, 2)
+            actual_covariance = L @ L.transpose(1, 2) # RSS^TR^T = RS @ (RS)^T    
             symm = strip_symmetric(actual_covariance)
             return symm
         
+        # 设置缩放参数的激活函数和逆激活函数
         self.scaling_activation = torch.exp
         self.scaling_inverse_activation = torch.log
 
+        # 设置协方差计算函数
         self.covariance_activation = build_covariance_from_scaling_rotation
 
+        # 设置不透明度的激活函数和逆激活函数
         self.opacity_activation = torch.sigmoid
         self.inverse_opacity_activation = inverse_sigmoid
 
+        # 设置旋转和m参数的激活函数
         self.rotation_activation = torch.sigmoid
         self.m_activation = torch.softmax
 
     def __init__(self, sh_degree : int, polynomial_degree : int = 1, frames: int=0):
+        """
+        初始化高斯模型
+        
+        参数:
+            sh_degree: 球谐函数的最大阶数，用于表示颜色特征
+            polynomial_degree: 多项式阶数，默认为1
+            frames: 帧数，默认为0，用于时序数据
+        """
+        # 当前激活的球谐函数阶数
         self.active_sh_degree = 0
+        # 多项式阶数
         self.polynomial_degree = polynomial_degree
+        # 球谐函数的最大阶数
         self.max_sh_degree = sh_degree  
+        # 高斯点的3D坐标
         self._xyz = torch.empty(0)
+        # 颜色分量特征，direct color
         self._features_dc = torch.empty(0)
+        # 其他特征分量
         self._features_rest = torch.empty(0)
+        # 缩放参数
         self._scaling = torch.empty(0)
+        # 旋转参数
         self._rotation = torch.empty(0)
+        # 不透明度参数
         self._opacity = torch.empty(0)
+        # 二维最大半径(用于屏幕空间处理)
         self.max_radii2D = torch.empty(0)
+        # 坐标梯度累积
         self.xyz_gradient_accum = torch.empty(0)
+        # m参数(可能用于调制或混合)
         self.m = torch.empty(0)
+        # w1参数(可能是权重或变形参数)
         self._w1 = torch.empty(0)
+        # sigma参数(可能表示高斯分布的标准差)
         self.sigma = torch.empty(0)
+        # 时间函数参数(用于时序数据)
         self.time_func = torch.empty(0)
+        # denom参数(可能用于归一化)
         self.denom = torch.empty(0)
+        # 优化器
         self.optimizer = None
+        # 稠密百分比
         self.percent_dense = 0
+        # 空间学习率缩放
         self.spatial_lr_scale = 0
+        # eps_s3参数(可能用于数值稳定性)
         self.eps_s3 = 1e-8
+        # 帧数
         self.frames = frames
+        # 设置函数
         self.setup_functions()
 
     def capture(self):
+        """
+        捕获当前模型的状态
+        
+        返回:
+            包含模型状态的元组
+        """
         return (
             self.active_sh_degree,
             self._xyz,
@@ -82,6 +141,13 @@ class GaussianModel:
         )
     
     def restore(self, model_args, training_args):
+        """
+        恢复模型状态
+        
+        参数:
+            model_args: 包含模型状态的元组
+            training_args: 训练参数
+        """
         (self.active_sh_degree, 
         self._xyz, 
         self._features_dc, 
@@ -101,6 +167,12 @@ class GaussianModel:
 
     @property
     def get_scaling(self):
+        """
+        获取缩放参数
+        
+        返回:
+            缩放参数
+        """
         s3 = torch.ones(self._scaling.shape[0], 1).cuda() * self.eps_s3
         s12 = self.scaling_activation(self._scaling[:, [0, -1]])
         s = torch.cat([s12[:, 0].unsqueeze(1), s3, s12[:, -1].unsqueeze(1)], dim=1)
@@ -108,12 +180,24 @@ class GaussianModel:
      
     @property
     def get_rotation_old(self):
+        """
+        获取旧的旋转参数
+        
+        返回:
+            旋转矩阵的四元数表示
+        """
         angle = self.rotation_activation(self._rotation.squeeze()) * 2 * np.pi
         rot_matrix = _axis_angle_rotation('Y', angle)
         return matrix_to_quaternion(rot_matrix)
 
     @property
     def get_rotation(self):
+        """
+        获取旋转参数
+        
+        返回:
+            旋转矩阵的四元数表示
+        """
         angle = (self.rotation_activation(self._rotation.squeeze()) * 2 * torch.pi) / 2
         w = torch.cos(angle)
         x = torch.zeros_like(w)
@@ -123,38 +207,93 @@ class GaussianModel:
 
     @property
     def get_m(self):
+        """
+        获取m参数
+        
+        返回:
+            m参数
+        """
         return torch.sigmoid(self.m)
     
     @property
     def get_sigma(self):
+        """
+        获取sigma参数
+        
+        返回:
+            sigma参数
+        """
         return self.scaling_activation(self.sigma)
     
     @property
     def get_xyz(self):
+        """
+        获取3D坐标
+        
+        返回:
+            3D坐标
+        """
         return self._xyz
     
     @property
     def get_time(self):
+        """
+        获取时间函数参数
+        
+        返回:
+            时间函数参数
+        """
         return torch.nn.functional.softmax(self.time_func.squeeze(), dim=0)
     
     @property
     def get_features(self):
+        """
+        获取特征参数
+        
+        返回:
+            特征参数
+        """
         features_dc = self._features_dc
         features_rest = self._features_rest
         return torch.cat((features_dc, features_rest), dim=1)
     
     @property
     def get_opacity(self):
+        """
+        获取不透明度参数
+        
+        返回:
+            不透明度参数
+        """
         return self.opacity_activation(self._opacity)
     
     def get_covariance(self, scaling_modifier = 1):
+        """
+        获取协方差矩阵
+        
+        参数:
+            scaling_modifier: 缩放修正系数，默认为1
+        
+        返回:
+            协方差矩阵
+        """
         return self.covariance_activation(self.get_scaling, scaling_modifier, self._rotation)
 
     def oneupSHdegree(self):
+        """
+        增加球谐函数的阶数
+        """
         if self.active_sh_degree < self.max_sh_degree:
             self.active_sh_degree += 1
 
     def create_from_pcd(self, pcd : BasicPointCloud, spatial_lr_scale : float):
+        """
+        从点云数据创建高斯模型
+        
+        参数:
+            pcd: 点云数据
+            spatial_lr_scale: 空间学习率缩放
+        """
         self.spatial_lr_scale = spatial_lr_scale
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
@@ -166,7 +305,7 @@ class GaussianModel:
 
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
-        rots = torch.logit(torch.rand((fused_point_cloud.shape[0], 1), device="cuda"))
+        rots = torch.logit(torch.rand((fused_point_cloud.shape[0], 1), device="cuda")) # 随机初始化旋转参数，范围在[-∞, +∞]，rand生成的是[0, 1）, logit(p = log(p/(1-p))，大范围有利于梯度计算
         w1 = torch.rand((fused_point_cloud.shape[0], 2 * self.polynomial_degree), device="cuda") * 2.0 - 1.0
         m = torch.logit(torch.rand((fused_point_cloud.shape[0], 1), device="cuda"))
         sigma = torch.log(torch.rand((fused_point_cloud.shape[0], 1, 1), device="cuda") * 0.99 + 0.01)
@@ -189,6 +328,12 @@ class GaussianModel:
         self.time_func = nn.Parameter(time_func.unsqueeze(-1).requires_grad_(True))
 
     def training_setup(self, training_args):
+        """
+        设置训练参数
+        
+        参数:
+            training_args: 训练参数
+        """
         self.percent_dense = training_args.percent_dense
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")

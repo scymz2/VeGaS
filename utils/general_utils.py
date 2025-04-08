@@ -77,18 +77,24 @@ def strip_symmetric(sym):
     return strip_lowerdiag(sym)
 
 def build_rotation(r):
+    """
+    Build the rotation matrix from the rotation vector.
+    r的范围是[-∞, +∞]，表示旋转的角度。
+    r.shape = (N, 3) 代表三个轴上的旋转角度。
+    """
     angle = torch.sigmoid(r.squeeze()) * 2 * np.pi
     R = _axis_angle_rotation('Y', angle)
     return R
 
 def build_scaling_rotation(s, r):
+    # s.shape = (N, 3) 代表三个轴上的缩放系数， 
     L = torch.zeros((s.shape[0], 3, 3), dtype=torch.float, device="cuda")
     R = build_rotation(r)
 
     L[:,0,0] = s[:,0]
     L[:,1,1] = s[:,1]
     L[:,2,2] = s[:,2]
-
+    # L = R @ S
     L = R @ L
     return L
 
