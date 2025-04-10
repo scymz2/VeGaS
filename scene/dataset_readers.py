@@ -341,7 +341,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
 
 # ------ FROM MIRAGE ------
 
-def readImage(path, image2dname, white_background, eval, distance, num_pts, extension=".png"):
+def readImage(path, image2dname, white_background, eval, distance, num_pts, extension=None):
     print("Creating Training Transform")
     train_cam_infos = CreateCamerasTransforms(
         path, image2dname, white_background, [-distance], extension
@@ -393,10 +393,21 @@ def create_transform_matrix(distance):
     ]
     return transform_matrix
 
-def CreateCamerasTransforms(path, image2dname, white_background, distances, extension=".png"):
+def CreateCamerasTransforms(path, image2dname, white_background, distances, extension=None):
     cam_infos = []
-
     fovx = 0.6911112070083618
+
+    # Try different extensions if one is not specified
+    if extension is None:
+        extensions_to_try = [".png", ".jpg", ".jpeg"]
+        found_extension = None
+        for ext in extensions_to_try:
+            if os.path.exists(os.path.join(path, image2dname + ext)):
+                found_extension = ext
+                break
+        if found_extension is None:
+            raise FileNotFoundError(f"Could not find image {image2dname} with any supported extension (.png, .jpg, .jpeg)")
+        extension = found_extension
 
     cam_name_init = os.path.join(path, image2dname + extension)
     cam_name_mirror = os.path.join(path, image2dname + "_mirror" + extension)

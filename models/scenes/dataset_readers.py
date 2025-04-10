@@ -50,7 +50,7 @@ def create_transform_matrix(distance):
     ]
     return transform_matrix
 
-def readImage(path, white_background, eval, distance, num_pts, extension=".png"):
+def readImage(path, white_background, eval, distance, num_pts, extension=None):
     """
     从单幅图像创建3D场景表示
     
@@ -62,7 +62,7 @@ def readImage(path, white_background, eval, distance, num_pts, extension=".png")
                  (默认值在train.py中为1.0)
         num_pts: 初始化生成的随机3D点的数量
                 (默认值在train.py中为100,000)
-        extension: 要查找的图像文件扩展名
+        extension: 要查找的图像文件扩展名，如果为None则自动检测
     
     返回:
         包含相机参数、点云和归一化数据的SceneInfo对象
@@ -119,7 +119,7 @@ def readImage(path, white_background, eval, distance, num_pts, extension=".png")
     return scene_info
 
 
-def readMirrorImages(path, white_background, eval, distance, num_pts, extension=".png"):
+def readMirrorImages(path, white_background, eval, distance, num_pts, extension=None):
     """
     从图像和其镜像创建3D场景表示
     
@@ -131,7 +131,7 @@ def readMirrorImages(path, white_background, eval, distance, num_pts, extension=
                  (默认值在train.py中为1.0)
         num_pts: 初始化生成的随机3D点的数量
                 (默认值在train.py中为100,000)
-        extension: 要查找的图像文件扩展名
+        extension: 要查找的图像文件扩展名，如果为None则自动检测
     
     返回:
         包含相机参数、点云和归一化数据的SceneInfo对象
@@ -157,9 +157,9 @@ def readMirrorImages(path, white_background, eval, distance, num_pts, extension=
     aspect_ratio = camera.width / camera.height
     right = top * aspect_ratio
     print(f"Generating random point cloud ({num_pts})...")
-    # 在合成Blender场景边界内创建随机点
+    # 在合成Blender场景边界内创建随机点，默认开始初始化100,000个点
     xyz = np.random.uniform(low=[-right, 0, -top], high=[right, 0, top], size=(num_pts, 3))
-    shs = np.random.random((num_pts, 3)) / 255.0
+    shs = np.random.random((num_pts, 3)) / 255.0 
     pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
 
     # 保存和读取点云
@@ -181,7 +181,7 @@ def readMirrorImages(path, white_background, eval, distance, num_pts, extension=
 
     return scene_info
 
-def CreateCamerasTransforms(path: str, white_background, distances, extension=".png"):
+def CreateCamerasTransforms(path: str, white_background, distances, extension=None):
     """
     为给定路径下的图像创建相机信息
     
@@ -190,12 +190,25 @@ def CreateCamerasTransforms(path: str, white_background, distances, extension=".
         white_background: 是否使用白色背景
         distances: 不同相机位置的距离列表
                   (在train.py中默认设置为[-1.0]或[-1.0, 1.0])
-        extension: 图像文件扩展名
+        extension: 图像文件扩展名，如果为None则自动检测
     
     返回:
         包含相机信息对象的列表
     """
     cam_infos = []
+
+    # 如果没有提供扩展名，则尝试检测常见图像格式
+    if extension is None:
+        # 尝试按优先顺序检测扩展名
+        extensions_to_try = [".png", ".jpg", ".jpeg"]
+        for ext in extensions_to_try:
+            if glob(f"{path}/original/*{ext}"):
+                extension = ext
+                print(f"Detected image extension: {extension}")
+                break
+        
+        if extension is None:
+            raise FileNotFoundError(f"Could not find any images with supported extensions (.png, .jpg, .jpeg) in {path}/original/")
 
     # 获取所有匹配扩展名的原始图像
     filepaths = glob(f"{path}/original/*{extension}")

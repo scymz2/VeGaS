@@ -73,30 +73,30 @@ class PipelineParams(ParamGroup):
 
 class OptimizationParams(ParamGroup):
     def __init__(self, parser):
-        self.iterations = 30_000
-        self.position_lr_init = 0.00016
-        self.position_lr_final = 0.0000016
-        self.position_lr_delay_mult = 0.01
-        self.position_lr_max_steps = 30_000
-        self.feature_lr = 0.0025
-        self.opacity_lr = 0.025
-        self.scaling_lr = 0.005
-        self.rotation_lr = 0.001
-        self.exposure_lr_init = 0.01
-        self.exposure_lr_final = 0.001
-        self.exposure_lr_delay_steps = 0
-        self.exposure_lr_delay_mult = 0.0
-        self.percent_dense = 0.01
-        self.lambda_dssim = 0.2
-        self.densification_interval = 100
-        self.opacity_reset_interval = 3000
-        self.densify_from_iter = 500
-        self.densify_until_iter = 15_000
-        self.densify_grad_threshold = 0.0002
-        self.depth_l1_weight_init = 1.0
-        self.depth_l1_weight_final = 0.01
-        self.random_background = False
-        self.optimizer_type = "default"
+        self.iterations = 30_000                  # 总训练迭代次数
+        self.position_lr_init = 0.00016           # 高斯位置参数的初始学习率
+        self.position_lr_final = 0.0000016        # 高斯位置参数的最终学习率
+        self.position_lr_delay_mult = 0.01        # 控制位置学习率衰减延迟的乘数
+        self.position_lr_max_steps = 30_000       # 位置学习率调度的最大步数
+        self.feature_lr = 0.0025                  # 高斯特征/颜色属性的学习率
+        self.opacity_lr = 0.025                   # 高斯不透明度属性的学习率
+        self.scaling_lr = 0.005                   # 高斯缩放(大小)参数的学习率
+        self.rotation_lr = 0.001                  # 高斯旋转参数的学习率
+        self.exposure_lr_init = 0.01              # 曝光优化的初始学习率
+        self.exposure_lr_final = 0.001            # 曝光优化的最终学习率
+        self.exposure_lr_delay_steps = 0          # 曝光学习率调度延迟的步数
+        self.exposure_lr_delay_mult = 0.0         # 控制曝光学习率衰减延迟的乘数
+        self.percent_dense = 0.01                 # 密度控制的百分比阈值
+        self.lambda_dssim = 0.2                   # 结构相似性指数测量(SSIM)损失的权重
+        self.densification_interval = 100         # 执行高斯点云加密的迭代间隔
+        self.opacity_reset_interval = 3000        # 重置不透明度值的迭代间隔
+        self.densify_from_iter = 500              # 开始进行加密过程的迭代次数
+        self.densify_until_iter = 15_000          # 停止加密过程的迭代次数
+        self.densify_grad_threshold = 0.0002      # 决定是否加密的梯度阈值
+        self.depth_l1_weight_init = 1.0           # 深度L1损失的初始权重
+        self.depth_l1_weight_final = 0.01         # 深度L1损失的最终权重
+        self.random_background = False            # 是否在训练中使用随机背景
+        self.optimizer_type = "default"           # 训练使用的优化器类型
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):
