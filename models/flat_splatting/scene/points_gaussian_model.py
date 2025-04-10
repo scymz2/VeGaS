@@ -14,6 +14,9 @@ import torch
 from scene.gaussian_model import GaussianModel
 from utils.general_utils import rot_to_quat_batch, build_rotation
 
+# This PointsGaussianModel class is a specialized version of the GaussianModel class.
+# It is designed to handle Gaussian distributions that are constrained to a plane (flat splatting).
+# 总之PointsGaussianModel是GaussianModel的一个子类，用于混合渲染，可以在需要的时候将高斯表示转换为三角网格表示。
 
 class PointsGaussianModel(GaussianModel):
 

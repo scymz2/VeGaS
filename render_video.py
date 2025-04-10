@@ -47,10 +47,12 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
 
         # 如果有背景模型，则加载背景高斯模型
         if parser.bg_model != "":
+            print("loading background model...")
             dataset.model_path = dataset.bg_model
             gaussians_bg = gaussianModelRender['gs'](dataset.sh_degree)
             scene_bg = Scene(dataset, gaussians_bg, load_iteration=iteration, shuffle=False)
         else:
+            print("no background model...")
             gaussians_bg = None
             scene_bg = None
 

@@ -169,7 +169,8 @@ def render(viewpoint_camera, pc_fg : Union[GaussianModel, PointsGaussianModel], 
         sh_degree=pc_fg.active_sh_degree,
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
-        debug=pipe.debug
+        debug=pipe.debug,
+        antialiasing=False,
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
@@ -204,7 +205,8 @@ def render(viewpoint_camera, pc_fg : Union[GaussianModel, PointsGaussianModel], 
         scales = fg_dict['scales']
     
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii = rasterizer(
+    # the third output is the depth buffer, which is not used here.
+    rendered_image, radii, _ = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = None,
