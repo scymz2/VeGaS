@@ -32,6 +32,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     Render the scene. 
     
     Background tensor (bg_color) must be on GPU!
+
+    Modify_func is a function that takes as input the means3D, scales, rotations and time and returns modified values, use for editing the scene.
+
+    scaling_modifier is a float that scales the Gaussian radii. It is used to make the Gaussians smaller or larger.
     """
     
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
@@ -42,8 +46,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         pass
 
     # Set up rasterization configuration
-    tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
-    tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
+    tanfovx = math.tan(viewpoint_camera.FoVx * 0.5) # half of the field of view in x direction, and below is the same for y
+    tanfovy = math.tan(viewpoint_camera.FoVy * 0.5) # unit is radians, 1 rad = 57.2958 degrees, 360 degrees = 6.2832 radians = 2 * pi
     viewpoint_camera.camera_center = viewpoint_camera.camera_center
     raster_settings = GaussianRasterizationSettings(
         image_height=int(viewpoint_camera.image_height),
@@ -60,7 +64,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         antialiasing=False,
         debug=pipe.debug
     )
-
+    # Create a Gaussian rasterizer
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
     _xyz = pc.get_xyz
     means3D = _xyz
